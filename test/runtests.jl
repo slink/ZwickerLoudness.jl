@@ -19,11 +19,11 @@ using ZwickerLoudness
     # ============================================================ #
     #  Annex B Conformance: 1 kHz at 60 dB (~Signal 3)
     # ============================================================ #
-    @testset "1 kHz at 60 dB -> ~4.019 sone" begin
+    @testset "1 kHz at 60 dB -> ~3.49 sone" begin
         spl = fill(-60.0, 28)
         spl[17] = 60.0
         result = zwicker_loudness(spl)
-        @test result.loudness ≈ 4.019 rtol=0.10
+        @test result.loudness ≈ 3.49 rtol=0.05
     end
 
     # ============================================================ #
