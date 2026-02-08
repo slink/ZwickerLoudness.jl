@@ -1,197 +1,122 @@
 using Test
 using ZwickerLoudness
 
-@testset "ZwickerLoudness.jl" begin
+@testset "ZwickerLoudness.jl - ISO 532-1:2017" begin
 
-    # ================================================================= #
-    #  Basic sanity tests
-    # ================================================================= #
-    @testset "zero/silence input" begin
-        spl = fill(-Inf, 28)
+    # ============================================================ #
+    #  Annex B Conformance: Signal 1 (broadband spectrum)
+    # ============================================================ #
+    @testset "Annex B Signal 1: broadband spectrum" begin
+        spl = Float64[-60, -60, 78, 79, 89, 72, 80, 89, 75, 87,
+                       85, 79, 86, 80, 71, 70, 72, 71, 72, 74,
+                       69, 65, 67, 77, 68, 58, 45, 30]
         result = zwicker_loudness(spl)
-        @test result.loudness ≈ 0.0 atol=1e-10
-        @test result.loudness_level ≈ 0.0  # sones_to_phons(0) = 0
-        @test length(result.specific_loudness) == 24
-        @test all(result.specific_loudness .≈ 0.0)
+        @test result.loudness ≈ 83.296 rtol=0.05
+        @test result.loudness_level ≈ 103.802 rtol=0.05
+        @test length(result.specific_loudness) == 240
     end
 
-    @testset "very quiet input (below threshold)" begin
-        # All bands at 0 dB SPL — well below threshold in quiet
-        spl = fill(0.0, 28)
+    # ============================================================ #
+    #  Annex B Conformance: 1 kHz at 60 dB (~Signal 3)
+    # ============================================================ #
+    @testset "1 kHz at 60 dB -> ~4.019 sone" begin
+        spl = fill(-60.0, 28)
+        spl[17] = 60.0
         result = zwicker_loudness(spl)
-        @test result.loudness ≈ 0.0 atol=1e-6
+        @test result.loudness ≈ 4.019 rtol=0.10
     end
 
-    # ================================================================= #
-    #  ISO 532B reference: 1 kHz tone at 40 dB → 1 sone, 40 phon
-    # ================================================================= #
-    @testset "1 kHz tone at 40 dB → ~1 sone" begin
-        # Band 17 (1 kHz) at 40 dB, all others silent
-        spl = fill(-Inf, 28)
-        spl[17] = 40.0  # 1 kHz band
-        result = zwicker_loudness(spl)
-
-        # ISO 532B reference: 1 kHz at 40 dB = 1 sone = 40 phon
-        # Our simplified model is calibrated to match this point closely
-        @test 0.5 < result.loudness < 2.0
-        @test result.loudness_level > 30.0
-    end
-
-    # ================================================================= #
-    #  ISO 532B reference: 1 kHz tone at 60 dB → 4 sone, 60 phon
-    # ================================================================= #
-    @testset "1 kHz tone at 60 dB → ~4 sone" begin
-        spl = fill(-Inf, 28)
-        spl[17] = 60.0  # 1 kHz band
-        result = zwicker_loudness(spl)
-
-        # 60 phon = 4 sone — simplified model gives ~3-4 sone
-        @test 1.5 < result.loudness < 10.0
-        @test result.loudness_level > 35.0
-    end
-
-    # ================================================================= #
-    #  Pink noise at 60 dB/band — broadband loudness
-    # ================================================================= #
-    @testset "pink noise at 60 dB/band" begin
-        spl = fill(60.0, 28)
-        result = zwicker_loudness(spl)
-
-        # Broadband noise at 60 dB/band should produce significant loudness.
-        # Exact value depends on masking model details; our simplified model
-        # gives ~50-80 sones. ISO reference is ~30 sone.
-        @test result.loudness > 5.0
-        @test result.loudness < 500.0
-        @test result.loudness_level > 50.0
-    end
-
-    # ================================================================= #
-    #  Monotonicity: louder input → more sones
-    # ================================================================= #
-    @testset "monotonicity" begin
-        spl_quiet = fill(40.0, 28)
-        spl_loud = fill(80.0, 28)
-
-        r_quiet = zwicker_loudness(spl_quiet)
-        r_loud = zwicker_loudness(spl_loud)
-
-        @test r_loud.loudness > r_quiet.loudness
-        @test r_loud.loudness_level > r_quiet.loudness_level
-    end
-
-    @testset "monotonicity for single band" begin
-        for level in [30.0, 50.0, 70.0, 90.0]
-            spl_lo = fill(-Inf, 28)
-            spl_hi = fill(-Inf, 28)
-            spl_lo[17] = level
-            spl_hi[17] = level + 10.0
-
-            r_lo = zwicker_loudness(spl_lo)
-            r_hi = zwicker_loudness(spl_hi)
-
-            @test r_hi.loudness >= r_lo.loudness
-        end
-    end
-
-    # ================================================================= #
-    #  Doubling sones ≈ +10 phon
-    # ================================================================= #
-    @testset "phon-sone relationship" begin
+    # ============================================================ #
+    #  Sone-to-Phon: Two Branches
+    # ============================================================ #
+    @testset "sone-to-phon: N >= 1" begin
         @test ZwickerLoudness.sones_to_phons(1.0) ≈ 40.0
         @test ZwickerLoudness.sones_to_phons(2.0) ≈ 50.0
         @test ZwickerLoudness.sones_to_phons(4.0) ≈ 60.0
+    end
+
+    @testset "sone-to-phon: N < 1 (power-law branch)" begin
+        @test ZwickerLoudness.sones_to_phons(0.5) ≈ 40.0 * 0.5005^0.35 atol=0.5
+    end
+
+    @testset "sone-to-phon: minimum 3 phon" begin
+        @test ZwickerLoudness.sones_to_phons(0.001) >= 3.0
+    end
+
+    @testset "sone-to-phon: zero" begin
         @test ZwickerLoudness.sones_to_phons(0.0) ≈ 0.0
-
-        @test ZwickerLoudness.phons_to_sones(40.0) ≈ 1.0
-        @test ZwickerLoudness.phons_to_sones(50.0) ≈ 2.0
-        @test ZwickerLoudness.phons_to_sones(60.0) ≈ 4.0
     end
 
-    # ================================================================= #
-    #  Input length handling
-    # ================================================================= #
-    @testset "31-band input (standard 20 Hz–20 kHz)" begin
-        spl_31 = fill(60.0, 31)
-        spl_28 = fill(60.0, 28)
+    # ============================================================ #
+    #  Low-Frequency Correction
+    # ============================================================ #
+    @testset "low-frequency correction" begin
+        spl_11 = fill(-60.0, 11)
+        spl_11[6] = 45.0
+        corrected, _ = ZwickerLoudness.correct_low_frequencies(spl_11)
+        @test corrected[6] ≈ 45.0 atol=0.1
 
-        r_31 = zwicker_loudness(spl_31)
-        r_28 = zwicker_loudness(spl_28)
-
-        # 31-band extracts bands 2-29, so the 28-band version with the same
-        # level should give the same result
-        @test r_31.loudness ≈ r_28.loudness atol=1e-6
+        spl_11_2 = fill(-60.0, 11)
+        spl_11_2[1] = 50.0
+        corrected2, _ = ZwickerLoudness.correct_low_frequencies(spl_11_2)
+        @test corrected2[1] < 50.0
     end
 
-    @testset "short input is padded" begin
-        spl_10 = fill(60.0, 10)
-        result = zwicker_loudness(spl_10)
-        # Should not error, just pad remaining bands with silence
-        @test result.loudness > 0.0
-        @test length(result.specific_loudness) == 24
+    # ============================================================ #
+    #  Free vs Diffuse Field
+    # ============================================================ #
+    @testset "free vs diffuse field differ" begin
+        spl = fill(70.0, 28)
+        r_free = zwicker_loudness(spl; field_type=:free)
+        r_diffuse = zwicker_loudness(spl; field_type=:diffuse)
+        @test r_free.loudness != r_diffuse.loudness
     end
 
-    # ================================================================= #
-    #  Specific loudness shape
-    # ================================================================= #
-    @testset "specific loudness has 24 bands" begin
+    @testset "default is free field" begin
+        spl = fill(70.0, 28)
+        @test zwicker_loudness(spl).loudness ≈ zwicker_loudness(spl; field_type=:free).loudness
+    end
+
+    # ============================================================ #
+    #  Specific Loudness Shape
+    # ============================================================ #
+    @testset "specific loudness: 240 bins, non-negative" begin
         spl = fill(70.0, 28)
         result = zwicker_loudness(spl)
-        @test length(result.specific_loudness) == 24
+        @test length(result.specific_loudness) == 240
         @test all(result.specific_loudness .>= 0.0)
     end
 
-    @testset "single-band excitation produces localized specific loudness" begin
-        # Only band 17 (1 kHz → Bark 14) has energy
-        spl = fill(-Inf, 28)
-        spl[17] = 70.0
-        result = zwicker_loudness(spl)
-
-        # Bark band 14 should have the highest specific loudness
-        @test argmax(result.specific_loudness) == 14
+    # ============================================================ #
+    #  Input Length Handling
+    # ============================================================ #
+    @testset "28-band input" begin
+        @test zwicker_loudness(fill(60.0, 28)).loudness > 0.0
     end
 
-    # ================================================================= #
-    #  Typical rotor noise range
-    # ================================================================= #
-    @testset "typical rotor noise spectrum" begin
-        # Simulate a rotor-like spectrum: peaks at low frequencies,
-        # rolls off at high frequencies
-        spl = Float64[
-            60, 62, 65, 68, 70, 72, 74, 75, 73, 71,
-            69, 67, 65, 63, 61, 59, 57, 55, 53, 50,
-            47, 44, 41, 38, 35, 32, 29, 26
-        ]
-        result = zwicker_loudness(spl)
-
-        # Typical rotor noise: significant loudness, in reasonable range
-        @test result.loudness > 5.0
-        @test result.loudness < 500.0
-        @test isfinite(result.loudness_level)
+    @testset "31-band input matches 28-band" begin
+        r_31 = zwicker_loudness(fill(60.0, 31))
+        r_28 = zwicker_loudness(fill(60.0, 28))
+        @test r_31.loudness ≈ r_28.loudness atol=1e-6
     end
 
-    # ================================================================= #
-    #  Internal functions
-    # ================================================================= #
-    @testset "map_to_critical_bands" begin
-        spl = fill(60.0, 28)
-        cb = ZwickerLoudness.map_to_critical_bands(spl)
-        @test length(cb) == 24
-
-        # Bands with 2 contributing 1/3-octave bands should be ~3 dB higher
-        # (energy doubling)
-        @test cb[1] ≈ 60.0 + 10 * log10(2.0) atol=0.1  # Bark 1 has 2 bands
-        @test cb[7] ≈ 60.0 atol=0.1  # Bark 7 has 1 band
+    @testset "short input padded" begin
+        @test zwicker_loudness(fill(60.0, 10)).loudness > 0.0
     end
 
-    @testset "upper_slope" begin
-        # At 40 dB → slope should be USL_BASE = 27
-        @test ZwickerLoudness.upper_slope(40.0) ≈ 27.0
+    # ============================================================ #
+    #  Sanity
+    # ============================================================ #
+    @testset "silence" begin
+        result = zwicker_loudness(fill(-60.0, 28))
+        @test result.loudness ≈ 0.0 atol=1e-10
+    end
 
-        # Louder → smaller slope (broader masking)
-        @test ZwickerLoudness.upper_slope(80.0) < ZwickerLoudness.upper_slope(40.0)
+    @testset "monotonicity" begin
+        @test zwicker_loudness(fill(80.0, 28)).loudness > zwicker_loudness(fill(40.0, 28)).loudness
+    end
 
-        # Clamped to [USL_MIN, USL_MAX]
-        @test ZwickerLoudness.upper_slope(200.0) ≈ ZwickerLoudness.USL_MIN
-        @test ZwickerLoudness.upper_slope(-100.0) ≈ ZwickerLoudness.USL_MAX
+    @testset "invalid field_type throws" begin
+        @test_throws ArgumentError zwicker_loudness(fill(60.0, 28); field_type=:invalid)
     end
 end
