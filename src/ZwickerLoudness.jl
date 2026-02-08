@@ -2,295 +2,330 @@ module ZwickerLoudness
 
 export ZwickerResult, zwicker_loudness
 
-"""
-    ZwickerResult
-
-Result of Zwicker loudness calculation (ISO 532B).
-"""
 struct ZwickerResult
-    loudness::Float64                  # total loudness [sone]
-    loudness_level::Float64            # loudness level [phon]
-    specific_loudness::Vector{Float64} # N'(z) per critical band [sone/Bark]
+    loudness::Float64
+    loudness_level::Float64
+    specific_loudness::Vector{Float64}
 end
 
 # =========================================================================== #
-#  ISO 532B Tabulated Constants
+#  ISO 532-1:2017 Tables (Zwicker:1991 / ISO 532-1:2017 Annex A)
 # =========================================================================== #
 
-# Standard 1/3-octave center frequencies (bands 1-28: 25 Hz to 12.5 kHz)
-const THIRD_OCTAVE_CENTERS_28 = Float64[
-    25, 31.5, 40, 50, 63, 80, 100, 125, 160, 200,
-    250, 315, 400, 500, 630, 800, 1000, 1250, 1600, 2000,
-    2500, 3150, 4000, 5000, 6300, 8000, 10000, 12500
+const RAP = Float64[45, 55, 65, 71, 80, 90, 100, 120]
+
+const DLL = Float64[
+    -32 -24 -16 -10 -5  0 -7 -3  0 -2  0;
+    -29 -22 -15 -10 -4  0 -7 -2  0 -2  0;
+    -27 -19 -14  -9 -4  0 -6 -2  0 -2  0;
+    -25 -17 -12  -9 -3  0 -5 -2  0 -2  0;
+    -23 -16 -11  -7 -3  0 -4 -1  0 -1  0;
+    -20 -14 -10  -6 -3  0 -4 -1  0 -1  0;
+    -18 -12  -9  -6 -2  0 -3 -1  0 -1  0;
+    -15 -10  -8  -4 -2  0 -3 -1  0 -1  0
 ]
 
-# Mapping: which 1/3-octave bands (1-indexed into the 28-band array) contribute
-# to each of the 24 critical bands (Bark scale). Some critical bands span
-# multiple 1/3-octave bands; energy is summed.
-#
-# Based on Zwicker & Fastl "Psychoacoustics" Table 6.1 and ISO 532B Table 1.
-# Each entry is a vector of 1/3-octave band indices that map to that Bark band.
-const BARK_BAND_MAPPING = [
-    [1, 2],       # Bark 1:  0-100 Hz   (25, 31.5 Hz)
-    [3, 4],       # Bark 2:  100-200 Hz  (40, 50 Hz)
-    [5, 6],       # Bark 3:  200-300 Hz  (63, 80 Hz)
-    [7],          # Bark 4:  300-400 Hz  (100 Hz)
-    [8],          # Bark 5:  400-510 Hz  (125 Hz)
-    [9],          # Bark 6:  510-630 Hz  (160 Hz)
-    [10],         # Bark 7:  630-770 Hz  (200 Hz)
-    [11],         # Bark 8:  770-920 Hz  (250 Hz)
-    [12],         # Bark 9:  920-1080 Hz (315 Hz)
-    [13],         # Bark 10: 1080-1270 Hz (400 Hz)
-    [14],         # Bark 11: 1270-1480 Hz (500 Hz)
-    [15],         # Bark 12: 1480-1720 Hz (630 Hz)
-    [16],         # Bark 13: 1720-2000 Hz (800 Hz)
-    [17],         # Bark 14: 2000-2320 Hz (1000 Hz)
-    [18],         # Bark 15: 2320-2700 Hz (1250 Hz)
-    [19],         # Bark 16: 2700-3150 Hz (1600 Hz)
-    [20],         # Bark 17: 3150-3700 Hz (2000 Hz)
-    [21],         # Bark 18: 3700-4400 Hz (2500 Hz)
-    [22],         # Bark 19: 4400-5300 Hz (3150 Hz)
-    [23],         # Bark 20: 5300-6400 Hz (4000 Hz)
-    [24],         # Bark 21: 6400-7700 Hz (5000 Hz)
-    [25],         # Bark 22: 7700-9500 Hz (6300 Hz)
-    [26],         # Bark 23: 9500-12000 Hz (8000 Hz)
-    [27, 28],     # Bark 24: 12000-15500 Hz (10000, 12500 Hz)
-]
+const LTQ = Float64[30, 18, 12, 8, 7, 6, 5, 4, 3, 3,
+                      3,  3,  3, 3, 3, 3, 3, 3, 3, 3]
 
-# Threshold in quiet per critical band [dB SPL]
-# From ISO 226 / Zwicker & Fastl Table 8.1
-const THRESHOLD_IN_QUIET = Float64[
-    60.0, 38.0, 26.0, 18.0, 14.0, 11.0, 8.5, 6.5, 5.5, 4.5,
-    4.0,  3.5,  3.0,  2.5,  2.5,  3.0,  4.0, 5.5, 7.0, 9.5,
-    13.0, 18.5, 26.0, 38.0
-]
+const A0 = Float64[0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                   -0.5, -1.6, -3.2, -5.4, -5.6, -4, -1.5, 2, 5, 12]
 
-# Ear transfer function correction [dB] per critical band
-# Free-field to eardrum transfer function (frontal incidence).
-# Peaks around 2-4 kHz (Bark bands 17-20) due to ear canal resonance.
-# At 1 kHz (Bark 14) correction is ~0 dB (reference frequency).
-# Based on ISO 532B / DIN 45631 diffuse-field listening condition.
-const EAR_TRANSFER = Float64[
-    -1.0, -0.5,  0.0,  0.5,  0.5,  0.5,  0.0,  0.0, -0.5,  0.0,
-     0.0,  0.0,  0.0,  0.0,  0.5,  1.5,  3.0,  5.0,  5.5,  4.5,
-     2.0, -1.0, -4.5, -8.0
-]
+const DDF = Float64[0, 0, 0.5, 0.9, 1.2, 1.6, 2.3, 2.8, 3, 2,
+                    0, -1.4, -2, -1.9, -1, 0.5, 3, 4, 4.3, 4]
 
-# Critical band level factor 's' per Bark band
-# Controls the steepness of the loudness growth function
-# From Zwicker & Fastl / ISO 532B
-const LEVEL_FACTOR_S = Float64[
-    0.18, 0.18, 0.18, 0.18, 0.18, 0.18, 0.18, 0.18, 0.18, 0.18,
-    0.18, 0.18, 0.18, 0.18, 0.18, 0.18, 0.18, 0.18, 0.18, 0.20,
-    0.21, 0.22, 0.24, 0.28
-]
+const DCB = Float64[-0.25, -0.6, -0.8, -0.8, -0.5, 0, 0.5, 1.1, 1.5, 1.7,
+                     1.8, 1.8, 1.7, 1.6, 1.4, 1.2, 0.8, 0.5, 0, -0.5]
 
-# Upper slope of masking pattern [dB/Bark] as function of excitation level
-# For the upward spread of masking calculation.
-# slope = USL_BASE + USL_SLOPE * (excitation_level - 40)
-# Capped between USL_MIN and USL_MAX
-const USL_BASE = 27.0   # slope at 40 dB
-const USL_SLOPE = -0.2  # slope change per dB above 40
-const USL_MIN = 10.0    # minimum slope (loud sounds)
-const USL_MAX = 37.0    # maximum slope (quiet sounds)
+const ZUP = Float64[0.9, 1.8, 2.8, 3.5, 4.4, 5.4, 6.6, 7.9, 9.2, 10.6,
+                    12.3, 13.8, 15.2, 16.7, 18.1, 19.3, 20.6, 21.8, 22.7, 23.6, 24.0]
+
+const RNS = Float64[21.5, 18, 15.1, 11.5, 9, 6.1, 4.4, 3.1,
+                    2.13, 1.36, 0.82, 0.42, 0.30, 0.22, 0.15, 0.10, 0.035, 0]
+
+const USL = Float64[
+    13.0  8.2  6.3  5.5  5.5  5.5  5.5  5.5;
+     9.0  7.5  6.0  5.1  4.5  4.5  4.5  4.5;
+     7.8  6.7  5.6  4.9  4.4  3.9  3.9  3.9;
+     6.2  5.4  4.6  4.0  3.5  3.2  3.2  3.2;
+     4.5  3.8  3.6  3.2  2.9  2.7  2.7  2.7;
+     3.7  3.0  2.8  2.35 2.2  2.2  2.2  2.2;
+     2.9  2.3  2.1  1.9  1.8  1.7  1.7  1.7;
+     2.4  1.7  1.5  1.35 1.3  1.3  1.3  1.3;
+     1.95 1.45 1.3  1.15 1.1  1.1  1.1  1.1;
+     1.5  1.2  0.94 0.86 0.82 0.82 0.82 0.82;
+     0.72 0.67 0.64 0.63 0.62 0.62 0.62 0.62;
+     0.59 0.53 0.51 0.50 0.42 0.42 0.42 0.42;
+     0.40 0.33 0.26 0.24 0.24 0.22 0.22 0.22;
+     0.27 0.21 0.20 0.18 0.17 0.17 0.17 0.17;
+     0.16 0.15 0.14 0.12 0.11 0.11 0.11 0.11;
+     0.12 0.11 0.10 0.08 0.08 0.08 0.08 0.08;
+     0.09 0.08 0.07 0.06 0.06 0.06 0.06 0.05;
+     0.06 0.05 0.03 0.02 0.02 0.02 0.02 0.02
+]
 
 # =========================================================================== #
-#  Core Algorithm
+#  Helpers
 # =========================================================================== #
 
-"""
-    map_to_critical_bands(spl_third::Vector{Float64}) -> Vector{Float64}
-
-Map 28 1/3-octave band levels to 24 critical band levels by energy summation.
-"""
-function map_to_critical_bands(spl_third::Vector{Float64})
-    cb_levels = zeros(Float64, 24)
-    for (z, bands) in enumerate(BARK_BAND_MAPPING)
-        # Energy sum of contributing 1/3-octave bands
-        p2_sum = 0.0
-        for b in bands
-            p2_sum += 10.0^(spl_third[b] / 10.0)
+# Find RNS index: position in decreasing RNS array where n fits.
+# equal_too=false: find first j where RNS[j] <= n
+# equal_too=true:  find first j where RNS[j] < n (strictly)
+function _rns_index(n::Float64; equal_too::Bool=false)
+    for j in 1:17
+        if equal_too
+            RNS[j] < n && return j
+        else
+            RNS[j] <= n && return j
         end
-        cb_levels[z] = 10.0 * log10(max(p2_sum, 1e-30))
     end
-    return cb_levels
+    return 18
 end
 
-"""
-    apply_ear_transfer(cb_levels::Vector{Float64}) -> Vector{Float64}
-
-Apply outer/middle ear transfer function correction to critical band levels.
-Returns excitation levels.
-"""
-function apply_ear_transfer(cb_levels::Vector{Float64})
-    return cb_levels .+ EAR_TRANSFER
+function _usl_value(rns_idx::Int, ig::Int)
+    return USL[rns_idx, min(ig, 8)]
 end
 
-"""
-    core_loudness(excitation::Float64, z::Int) -> Float64
+# =========================================================================== #
+#  Step 1: Low-Frequency Correction (bands 1-11, 25 Hz to 250 Hz)
+# =========================================================================== #
 
-Compute specific loudness N' [sone/Bark] for critical band z given
-excitation level [dB SPL]. Uses the Zwicker power-law model per
-DIN 45631 / ISO 532B Method B.
+function correct_low_frequencies(spl_11::AbstractVector{Float64})
+    n = length(spl_11)
+    corrected = copy(spl_11)
+    ti = zeros(Float64, n)
 
-The formula (working in dB domain):
-    N' = 0.08 × 10^(0.023 × LTQ) × [(0.5 + 0.5 × 10^((LE-LTQ)/(10/s)))^0.23 - 1]
+    for i in 1:n
+        k = 1
+        for k_test in 1:7
+            if spl_11[i] > (RAP[k_test] - DLL[k_test, i])
+                k = k_test + 1
+            else
+                break
+            end
+        end
+        corrected[i] = spl_11[i] + DLL[k, i]
+        ti[i] = 10.0^(corrected[i] / 10.0)
+    end
 
-Calibrated so that 1 kHz at 40 dB SPL produces 1 sone total loudness.
-"""
-function core_loudness(excitation::Float64, z::Int)
-    LTQ = THRESHOLD_IN_QUIET[z]
-    s = LEVEL_FACTOR_S[z]
-
-    # Below threshold → zero loudness
-    excitation <= LTQ && return 0.0
-
-    # Normalization factor: converts from excitation to specific loudness
-    # ISO 532B: N' = C × (E_TQ/s)^0.23 × [(0.5 + 0.5×E/E_TQ)^0.23 - 1]
-    # In dB: (E_TQ/s)^0.23 = 10^(0.023×LTQ) / s^0.23
-    # C = 0.1133 calibrated so that 1 kHz pure tone at 40 dB SPL = 1.0 sone
-    norm = 0.1133 * 10.0^(0.023 * LTQ) / s^0.23
-
-    # Power-law loudness growth
-    # E/E_TQ = 10^((LE-LTQ)/10) in linear power domain
-    inner = 0.5 + 0.5 * 10.0^((excitation - LTQ) / 10.0)
-    N_prime = norm * (inner^0.23 - 1.0)
-
-    return max(N_prime, 0.0)
+    return corrected, ti
 end
 
-"""
-    upper_slope(excitation::Float64) -> Float64
+# =========================================================================== #
+#  Step 2: Compute Excitation Levels (20 critical bands)
+# =========================================================================== #
 
-Compute the upper slope [dB/Bark] of the masking pattern for a given
-excitation level. The slope decreases with increasing level (louder
-sounds mask more broadly).
-"""
-function upper_slope(excitation::Float64)
-    slope = USL_BASE + USL_SLOPE * (excitation - 40.0)
-    return clamp(slope, USL_MIN, USL_MAX)
+function compute_excitation_levels(spl_28::AbstractVector{Float64}, field_type::Symbol)
+    _, ti = correct_low_frequencies(spl_28[1:11])
+
+    # Sum intensities into three critical band levels
+    gi = zeros(Float64, 3)
+    gi[1] = sum(ti[1:6])
+    gi[2] = sum(ti[7:9])
+    gi[3] = sum(ti[10:11])
+
+    lcb = zeros(Float64, 3)
+    for i in 1:3
+        gi[i] > 0.0 && (lcb[i] = 10.0 * log10(gi[i]))
+    end
+
+    # Build 20 excitation levels: bands 9-28, replacing first 3 with LCB
+    le = zeros(Float64, 20)
+    for i in 1:20
+        le[i] = spl_28[i + 8]
+    end
+    le[1] = lcb[1]
+    le[2] = lcb[2]
+    le[3] = lcb[3]
+
+    # Subtract ear transmission correction
+    for i in 1:20
+        le[i] -= A0[i]
+    end
+
+    # Add diffuse field correction if needed
+    if field_type == :diffuse
+        for i in 1:20
+            le[i] += DDF[i]
+        end
+    end
+
+    return le
 end
 
-"""
-    apply_masking!(specific_loudness::Vector{Float64}, excitation_levels::Vector{Float64})
+# =========================================================================== #
+#  Step 3: Core Loudness (20 bands + 1 zero terminator = 21 values)
+# =========================================================================== #
 
-Apply upward spread of masking: each critical band's excitation spreads
-into higher bands, reducing the specific loudness contribution of higher
-bands that are masked by lower-frequency sounds.
+function compute_core_loudness(le::Vector{Float64})
+    s = 0.25
+    nm = zeros(Float64, 21)
 
-Modifies `specific_loudness` in place.
-"""
-function apply_masking!(specific_loudness::Vector{Float64}, excitation_levels::Vector{Float64})
-    n_bands = length(specific_loudness)
+    for i in 1:20
+        if le[i] > LTQ[i]
+            le_corr = le[i] - DCB[i]
+            mp1 = 0.0635 * 10.0^(0.025 * LTQ[i])
+            mp2 = (1.0 - s + s * 10.0^(0.1 * (le_corr - LTQ[i])))^0.25 - 1.0
+            nm[i] = max(mp1 * mp2, 0.0)
+        end
+    end
 
-    for z in 1:(n_bands - 1)
-        excitation_levels[z] <= THRESHOLD_IN_QUIET[z] && continue
+    # Korry correction for lowest critical band
+    korry = 0.4 + 0.32 * nm[1]^0.2
+    if korry <= 1.0
+        nm[1] *= korry
+    end
 
-        slope = upper_slope(excitation_levels[z])
+    return nm
+end
 
-        # Spread into higher bands
-        for zz in (z + 1):n_bands
-            delta_z = zz - z  # Bark distance
-            masking_reduction = slope * delta_z  # dB reduction per Bark
+# =========================================================================== #
+#  Step 4: Spreading Function (240-bin specific loudness + total loudness)
+# =========================================================================== #
 
-            # Masking threshold from band z at position zz
-            masked_level = excitation_levels[z] - masking_reduction
+function compute_spreading(nm::Vector{Float64})
+    N = 0.0
+    ns = zeros(Float64, 240)
+    dec = 8
 
-            # If the masked level exceeds the actual excitation at zz,
-            # the signal at zz is (partially) masked. We reduce its
-            # specific loudness contribution proportionally.
-            if masked_level > excitation_levels[zz]
-                # Signal is fully masked at this distance
-                # Reduce specific loudness at zz
-                mask_excess = masked_level - excitation_levels[zz]
-                # Exponential reduction factor
-                reduction = 10.0^(-mask_excess / 20.0)
-                specific_loudness[zz] *= reduction
+    zup_ea = [round(Int, ZUP[i] * 10) for i in 1:21]
+
+    n1 = 0.0
+    z1 = 0.0
+
+    for i in 1:21
+        ig = clamp(i - 1, 1, 8)
+
+        lo_bin = (i == 1) ? 1 : zup_ea[i-1] + 1
+        hi_bin = zup_ea[i]
+
+        if round(n1, digits=dec) <= round(nm[i], digits=dec)
+            # Rising/flat: rectangular integration
+            N += nm[i] * (ZUP[i] - z1)
+            for j in lo_bin:hi_bin
+                ns[j] = nm[i]
+            end
+            n1 = nm[i]
+            z1 = ZUP[i]
+        else
+            # Falling: slope decay from n1 toward nm[i]
+            j_rns = _rns_index(n1)
+            usl_val = _usl_value(j_rns, ig)
+
+            n2 = max(RNS[j_rns], nm[i])
+            dz = (n1 - n2) / usl_val
+            z2 = z1 + dz
+            if z2 > ZUP[i]
+                z2 = ZUP[i]
+                dz = z2 - z1
+                n2 = n1 - dz * usl_val
+            end
+            N += dz * (n1 + n2) / 2.0
+
+            # Fill 0.1-Bark bins
+            z = lo_bin * 0.1
+            done = false
+            for j in lo_bin:hi_bin
+                if round(z2, digits=dec) > round(z, digits=dec)
+                    ns[j] = max(n1 - (z - z1) * usl_val, 0.0)
+                else
+                    # End of slope segment; start new one
+                    n1 = n2
+                    z1 = z2
+
+                    if round(n1, digits=dec) <= round(nm[i], digits=dec)
+                        # Transitioned to flat
+                        N += nm[i] * (ZUP[i] - z1)
+                        for k in j:hi_bin
+                            ns[k] = nm[i]
+                        end
+                        n1 = nm[i]
+                        z1 = ZUP[i]
+                        done = true
+                        break
+                    end
+
+                    # New decay segment
+                    j_rns = _rns_index(n1; equal_too=true)
+                    usl_val = _usl_value(j_rns, ig)
+                    n2 = max(RNS[j_rns], nm[i])
+                    dz = (n1 - n2) / usl_val
+                    z2 = z1 + dz
+                    if z2 > ZUP[i]
+                        z2 = ZUP[i]
+                        dz = z2 - z1
+                        n2 = n1 - dz * usl_val
+                    end
+                    N += dz * (n1 + n2) / 2.0
+
+                    ns[j] = max(n1 - (z - z1) * usl_val, 0.0)
+                end
+                z += 0.1
+            end
+
+            if !done
+                n1 = n2
+                z1 = z2
             end
         end
     end
+
+    N = max(N, 0.0)
+    if N <= 16.0
+        N = floor(N * 1000.0 + 0.5) / 1000.0
+    else
+        N = floor(N * 100.0 + 0.5) / 100.0
+    end
+
+    return N, ns
 end
 
-"""
-    sones_to_phons(loudness::Float64) -> Float64
+# =========================================================================== #
+#  Sone-to-Phon Conversion (ISO 532-1:2017 two-branch formula)
+# =========================================================================== #
 
-Convert loudness in sones to loudness level in phons.
-N = 2^((LN - 40)/10)  →  LN = 40 + 10 × log₂(N)
-"""
-function sones_to_phons(loudness::Float64)
-    loudness <= 0.0 && return 0.0
-    return 40.0 + 10.0 * log2(loudness)
-end
-
-"""
-    phons_to_sones(phons::Float64) -> Float64
-
-Convert loudness level in phons to loudness in sones.
-LN = 40 + 10 × log₂(N)  →  N = 2^((LN - 40)/10)
-"""
-function phons_to_sones(phons::Float64)
-    return 2.0^((phons - 40.0) / 10.0)
+function sones_to_phons(N::Float64)
+    N <= 0.0 && return 0.0
+    if N >= 1.0
+        return 40.0 + 10.0 * log2(N)
+    else
+        LN = 40.0 * (N + 0.0005)^0.35
+        return max(LN, 3.0)
+    end
 end
 
 # =========================================================================== #
 #  Main Entry Point
 # =========================================================================== #
 
-"""
-    zwicker_loudness(spl_third_octave::Vector{Float64}) -> ZwickerResult
-
-Compute Zwicker loudness (ISO 532B, stationary sound, free-field) from
-1/3-octave band SPL values.
-
-# Input
-- `spl_third_octave`: SPL values [dB] for 28 1/3-octave bands
-  (center frequencies 25 Hz to 12.5 kHz). Accepts vectors of length 28
-  directly, or length 31 (the standard 20 Hz–20 kHz set, from which
-  bands 2-29 are extracted).
-
-# Returns
-A `ZwickerResult` with:
-- `loudness`: total loudness [sone]
-- `loudness_level`: loudness level [phon]
-- `specific_loudness`: N'(z) per critical band [sone/Bark] (24 values)
-"""
-function zwicker_loudness(spl_third_octave::Vector{Float64})
-    n = length(spl_third_octave)
-
-    # Handle different input lengths
-    if n == 28
-        spl_28 = spl_third_octave
-    elseif n == 31
-        # Standard 31-band (20 Hz–20 kHz): extract bands 2-29 (25 Hz–12.5 kHz)
-        spl_28 = spl_third_octave[2:29]
-    elseif n > 28
-        # Take the first 28 bands
-        spl_28 = spl_third_octave[1:28]
-    else
-        # Pad with silence (below threshold)
-        spl_28 = vcat(spl_third_octave, fill(-Inf, 28 - n))
+function zwicker_loudness(spl_third_octave::AbstractVector{<:Real}; field_type::Symbol=:free)
+    if field_type !== :free && field_type !== :diffuse
+        throw(ArgumentError("field_type must be :free or :diffuse, got :$field_type"))
     end
 
-    # Step 1: Map 1/3-octave bands to 24 critical bands
-    cb_levels = map_to_critical_bands(spl_28)
+    spl = Float64.(spl_third_octave)
+    n = length(spl)
 
-    # Step 2: Apply ear transfer function
-    excitation_levels = apply_ear_transfer(cb_levels)
+    if n == 28
+        spl_28 = spl
+    elseif n == 31
+        spl_28 = spl[2:29]
+    elseif n > 28
+        spl_28 = spl[1:28]
+    else
+        spl_28 = vcat(spl, fill(-60.0, 28 - n))
+    end
 
-    # Step 3: Compute core specific loudness per band
-    specific_loudness = [core_loudness(excitation_levels[z], z) for z in 1:24]
+    if maximum(spl_28[1:11]) > 120.0
+        throw(ArgumentError("1/3 octave band levels exceed 120 dB in bands 1-11; Zwicker method not valid."))
+    end
 
-    # Step 4: Apply upward spread of masking
-    apply_masking!(specific_loudness, excitation_levels)
+    le = compute_excitation_levels(spl_28, field_type)
+    nm = compute_core_loudness(le)
+    N, ns = compute_spreading(nm)
+    LN = sones_to_phons(N)
 
-    # Step 5: Integrate specific loudness → total loudness [sone]
-    # Each critical band is 1 Bark wide, so N = Σ N'(z) × Δz = Σ N'(z)
-    loudness = sum(specific_loudness)
-
-    # Step 6: Convert to phons
-    loudness_level = sones_to_phons(loudness)
-
-    return ZwickerResult(loudness, loudness_level, specific_loudness)
+    return ZwickerResult(N, LN, ns)
 end
 
 end # module
