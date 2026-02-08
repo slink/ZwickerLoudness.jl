@@ -2,9 +2,9 @@
 
 [![CI](https://github.com/slink/ZwickerLoudness.jl/actions/workflows/CI.yml/badge.svg)](https://github.com/slink/ZwickerLoudness.jl/actions/workflows/CI.yml)
 
-Zwicker loudness calculation for stationary sounds per **ISO 532B** (Method B, simplified).
+Zwicker loudness calculation for stationary sounds per **ISO 532-1:2017** (Method 1).
 
-Converts 28 one-third-octave band SPL values into perceptual loudness in **sones** and **phons**, accounting for the frequency-dependent sensitivity of human hearing.
+Converts 28 one-third-octave band SPL values into perceptual loudness in **sones** and **phons**, with 240-bin specific loudness at 0.1 Bark resolution.
 
 ## Installation
 
@@ -27,29 +27,32 @@ result = zwicker_loudness(spl)
 
 result.loudness           # total loudness [sone]
 result.loudness_level     # loudness level [phon]
-result.specific_loudness  # N'(z) per critical band [sone/Bark] (24 values)
+result.specific_loudness  # N'(z) at 0.1 Bark resolution [sone/Bark] (240 values)
+
+# Diffuse field listening condition
+result_diffuse = zwicker_loudness(spl; field_type=:diffuse)
 ```
 
 Also accepts 31-band input (standard 20 Hz -- 20 kHz); bands 2--29 are extracted automatically.
 
 ## How It Works
 
-The ISO 532B pipeline:
+The ISO 532-1:2017 pipeline:
 
 ```
 28 one-third-octave bands (25 Hz -- 12.5 kHz)
     |
     v
-24 Bark critical bands (energy summation)
+Low-frequency correction (DLL table, equal-loudness contours)
     |
     v
-Ear transfer function (outer/middle ear correction)
+20 critical band excitation levels (energy summation + ear transmission)
     |
     v
-Core specific loudness (Zwicker power-law model)
+Core specific loudness (Zwicker power-law, s=0.25, korry correction)
     |
     v
-Upward spread of masking
+240-bin spreading (USL/RNS slope tables, 0.1 Bark resolution)
     |
     v
 Integration --> total loudness [sone] --> loudness level [phon]
@@ -57,18 +60,26 @@ Integration --> total loudness [sone] --> loudness level [phon]
 
 **Key psychoacoustic effects modeled:**
 
-- **Threshold in quiet** -- frequency-dependent minimum audibility (ISO 226)
-- **Ear transfer function** -- resonance gain of the ear canal, peaking at 2--4 kHz
-- **Loudness growth** -- power-law compression (Stevens' law), calibrated so 1 kHz at 40 dB SPL = 1 sone = 40 phon
-- **Upward spread of masking** -- low-frequency sounds reduce the perceived loudness of higher-frequency sounds
+- **Low-frequency correction** -- equal-loudness contour weighting for bands below 315 Hz
+- **Threshold in quiet** -- frequency-dependent minimum audibility per critical band
+- **Ear transmission** -- outer/middle ear transfer function (A0 correction)
+- **Loudness growth** -- power-law compression with critical band adaptation (DCB)
+- **Spreading function** -- upward spread of masking via tabulated upper slopes (USL)
+- **Free/diffuse field** -- selectable listening condition (DDF correction)
 
 ## API
 
-### `zwicker_loudness(spl::Vector{Float64}) -> ZwickerResult`
+### `zwicker_loudness(spl; field_type=:free) -> ZwickerResult`
 
 Compute Zwicker loudness from one-third-octave band SPL values.
 
 **Input:** Vector of SPL values [dB] for 28 bands (25 Hz -- 12.5 kHz). Also accepts 31 bands (20 Hz -- 20 kHz), shorter vectors (padded with silence), or longer vectors (truncated).
+
+**Keyword arguments:**
+
+| Argument | Default | Description |
+|----------|---------|-------------|
+| `field_type` | `:free` | Listening condition: `:free` or `:diffuse` |
 
 **Returns** a `ZwickerResult`:
 
@@ -76,12 +87,20 @@ Compute Zwicker loudness from one-third-octave band SPL values.
 |-------|------|-------------|
 | `loudness` | `Float64` | Total loudness [sone] |
 | `loudness_level` | `Float64` | Loudness level [phon] |
-| `specific_loudness` | `Vector{Float64}` | N'(z) per critical band [sone/Bark], 24 values |
+| `specific_loudness` | `Vector{Float64}` | N'(z) at 0.1 Bark resolution [sone/Bark], 240 values |
+
+## Conformance
+
+Validated against ISO 532-1:2017 Annex B test signals and cross-checked with the [MoSQITo](https://github.com/Eomys/MoSQITo) Python reference implementation.
+
+| Test Signal | Expected [sone] | Result [sone] | Tolerance |
+|-------------|-----------------|---------------|-----------|
+| Annex B Signal 1 (broadband) | 83.296 | 83.296 | +/-5% |
 
 ## References
 
-- ISO 532:1975 (Method B) -- Acoustics: Method for calculating loudness level
-- DIN 45631 -- Berechnung des Lautstarkepegels und der Lautheit
+- ISO 532-1:2017 -- Acoustics: Methods for calculating loudness, Part 1: Zwicker method
+- Zwicker, E. (1991). "Program for calculating loudness according to DIN 45631 (ISO 532B)". *J. Acoust. Soc. Jpn. (E)* 12, 1.
 - Zwicker, E. & Fastl, H. (2007). *Psychoacoustics: Facts and Models*. Springer.
 
 ## License
