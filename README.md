@@ -1,6 +1,7 @@
 # ZwickerLoudness.jl
 
 [![CI](https://github.com/slink/ZwickerLoudness.jl/actions/workflows/CI.yml/badge.svg)](https://github.com/slink/ZwickerLoudness.jl/actions/workflows/CI.yml)
+[![codecov](https://codecov.io/gh/slink/ZwickerLoudness.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/slink/ZwickerLoudness.jl)
 
 Zwicker loudness calculation for stationary sounds per **ISO 532-1:2017** (Method 1).
 
