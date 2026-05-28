@@ -2,6 +2,17 @@ module ZwickerLoudness
 
 export ZwickerResult, zwicker_loudness
 
+"""
+    ZwickerResult
+
+Result of an ISO 532-1:2017 Method 1 loudness calculation.
+
+# Fields
+- `loudness::Float64`: total loudness `N` in sone.
+- `loudness_level::Float64`: loudness level `L_N` in phon.
+- `specific_loudness::Vector{Float64}`: specific loudness `N'(z)` in sone/Bark,
+  240 values at 0.1 Bark resolution (z = 0.1, 0.2, …, 24.0 Bark).
+"""
 struct ZwickerResult
     loudness::Float64
     loudness_level::Float64
@@ -284,6 +295,16 @@ end
 #  Sone-to-Phon Conversion (ISO 532-1:2017 two-branch formula)
 # =========================================================================== #
 
+"""
+    sones_to_phons(N) -> Float64
+
+Convert total loudness `N` in sone to loudness level `L_N` in phon using the
+two-branch ISO 532-1:2017 formula:
+
+- `N ≥ 1`: `L_N = 40 + 10·log₂(N)` (Stevens' power law).
+- `0 < N < 1`: `L_N = 40·(N + 0.0005)^0.35`, floored at 3 phon.
+- `N ≤ 0`: returns `0.0`.
+"""
 function sones_to_phons(N::Float64)
     N <= 0.0 && return 0.0
     if N >= 1.0
@@ -298,6 +319,40 @@ end
 #  Main Entry Point
 # =========================================================================== #
 
+"""
+    zwicker_loudness(spl; field_type=:free) -> ZwickerResult
+
+Compute Zwicker loudness from one-third-octave band SPL values per
+ISO 532-1:2017 Method 1.
+
+`spl` is a vector of band SPL values in dB (re. 20 µPa). Accepts:
+- 28 values for the 25 Hz – 12.5 kHz range (preferred),
+- 31 values for the 20 Hz – 20 kHz range; bands 2–29 are used,
+- shorter inputs (padded with -60 dB silence) or longer (truncated to 28).
+
+# Keyword arguments
+- `field_type::Symbol = :free`: listening condition, either `:free` or `:diffuse`.
+
+# Returns
+A [`ZwickerResult`](@ref) with total loudness in sone, loudness level in phon,
+and 240-bin specific loudness `N'(z)` in sone/Bark at 0.1 Bark resolution.
+
+# Throws
+- `ArgumentError` if `field_type` is not `:free` or `:diffuse`.
+- `ArgumentError` if any of the first 11 band levels exceeds 120 dB (outside
+  the Zwicker method's valid range).
+
+# Example
+```julia
+spl = Float64[60, 62, 65, 68, 70, 72, 74, 75, 73, 71,
+              69, 67, 65, 63, 61, 59, 57, 55, 53, 50,
+              47, 44, 41, 38, 35, 32, 29, 26]
+result = zwicker_loudness(spl)
+result.loudness         # total loudness [sone]
+result.loudness_level   # loudness level [phon]
+result.specific_loudness  # 240-bin N'(z) [sone/Bark]
+```
+"""
 function zwicker_loudness(spl_third_octave::AbstractVector{<:Real}; field_type::Symbol=:free)
     if field_type !== :free && field_type !== :diffuse
         throw(ArgumentError("field_type must be :free or :diffuse, got :$field_type"))

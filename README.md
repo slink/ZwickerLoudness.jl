@@ -91,11 +91,14 @@ Compute Zwicker loudness from one-third-octave band SPL values.
 
 ## Conformance
 
-Validated against ISO 532-1:2017 Annex B test signals and cross-checked with the [MoSQITo](https://github.com/Eomys/MoSQITo) Python reference implementation.
+Validated against ISO 532-1:2017 Annex B **Signal 1** (the only 28-band reference in Annex B) and cross-checked per-bin against the [MoSQITo](https://github.com/Eomys/MoSQITo) Python reference implementation.
 
-| Test Signal | Expected [sone] | Result [sone] | Tolerance |
-|-------------|-----------------|---------------|-----------|
-| Annex B Signal 1 (broadband) | 83.296 | 83.296 | +/-5% |
+| Test | Expected | Result |
+|------|----------|--------|
+| Signal 1 total `N` | 83.296 sone (+/-5%) | 83.296 sone |
+| Signal 1 `N'(z)` (240 bins) | MoSQITo CSV reference | max abs diff < 0.001 sone/Bark |
+
+> **Scope note.** Annex B Signals 2-5 are time-domain `.wav` files that require a third-octave filter bank (per IEC 61260) to convert to 28-band SPL before the Method 1 kernel implemented here can run. That preprocessing is out of scope for this zero-dependency package; pair it with a third-octave filter bank to validate against Signals 2-5.
 
 ## References
 

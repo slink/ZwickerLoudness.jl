@@ -1,25 +1,55 @@
 using Test
 using ZwickerLoudness
 
+const SIGNAL_1_SPL = Float64[-60, -60, 78, 79, 89, 72, 80, 89, 75, 87,
+                              85, 79, 86, 80, 71, 70, 72, 71, 72, 74,
+                              69, 65, 67, 77, 68, 58, 45, 30]
+
+# Load 240-bin reference N'(z) for Signal 1 (free field) from MoSQITo CSV.
+# See test/fixtures/NOTICE.md for attribution.
+function load_signal_1_nspec_reference()
+    path = joinpath(@__DIR__, "fixtures", "test_signal_1_nspec.csv")
+    values = Float64[]
+    open(path) do io
+        for line in eachline(io)
+            # Strip UTF-8 BOM (U+FEFF) before any other check
+            stripped = strip(lstrip(line, '﻿'))
+            (isempty(stripped) || startswith(stripped, "#")) && continue
+            push!(values, parse(Float64, stripped))
+        end
+    end
+    return values
+end
+
 @testset "ZwickerLoudness.jl - ISO 532-1:2017" begin
 
     # ============================================================ #
-    #  Annex B Conformance: Signal 1 (broadband spectrum)
+    #  Annex B Conformance: Signal 1 (28-band broadband spectrum)
     # ============================================================ #
-    @testset "Annex B Signal 1: broadband spectrum" begin
-        spl = Float64[-60, -60, 78, 79, 89, 72, 80, 89, 75, 87,
-                       85, 79, 86, 80, 71, 70, 72, 71, 72, 74,
-                       69, 65, 67, 77, 68, 58, 45, 30]
-        result = zwicker_loudness(spl)
+    @testset "Annex B Signal 1: total loudness" begin
+        result = zwicker_loudness(SIGNAL_1_SPL)
         @test result.loudness ≈ 83.296 rtol=0.05
         @test result.loudness_level ≈ 103.802 rtol=0.05
         @test length(result.specific_loudness) == 240
     end
 
+    @testset "Annex B Signal 1: specific loudness N'(z) per bin" begin
+        result = zwicker_loudness(SIGNAL_1_SPL)
+        ref = load_signal_1_nspec_reference()
+        @test length(ref) == 240
+        # Per-bin agreement within ISO 532-1 tolerance band.
+        # Empirically our kernel matches MoSQITo to <0.0005 sone/Bark on every bin.
+        @test maximum(abs.(result.specific_loudness .- ref)) < 0.001
+    end
+
     # ============================================================ #
-    #  Annex B Conformance: 1 kHz at 60 dB (~Signal 3)
+    #  Single-band internal consistency (NOT an Annex B test).
+    #  Feeding band 17 = 60 dB with all others silent is an idealized
+    #  third-octave input that exercises the core+spreading kernel;
+    #  it is NOT equivalent to ISO 532-1 Signal 3 (a .wav file that
+    #  requires the third-octave filter bank preprocessing).
     # ============================================================ #
-    @testset "1 kHz at 60 dB -> ~3.49 sone" begin
+    @testset "single-band 60 dB at 1 kHz (internal consistency)" begin
         spl = fill(-60.0, 28)
         spl[17] = 60.0
         result = zwicker_loudness(spl)
