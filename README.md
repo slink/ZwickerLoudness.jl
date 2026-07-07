@@ -11,7 +11,7 @@ Converts 28 one-third-octave band SPL values into perceptual loudness in **sones
 
 ```julia
 using Pkg
-Pkg.add(url="https://github.com/slink/ZwickerLoudness.jl")
+Pkg.add("ZwickerLoudness")
 ```
 
 ## Quick Start
