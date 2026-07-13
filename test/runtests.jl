@@ -150,3 +150,5 @@ end
         @test_throws ArgumentError zwicker_loudness(fill(60.0, 28); field_type=:invalid)
     end
 end
+
+include("test_method2_kernel.jl")

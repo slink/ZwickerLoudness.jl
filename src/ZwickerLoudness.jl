@@ -1,5 +1,7 @@
 module ZwickerLoudness
 
+using Statistics: quantile
+
 export ZwickerResult, zwicker_loudness
 
 """
@@ -382,5 +384,7 @@ function zwicker_loudness(spl_third_octave::AbstractVector{<:Real}; field_type::
 
     return ZwickerResult(N, LN, ns)
 end
+
+include("method2.jl")
 
 end # module
