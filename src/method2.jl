@@ -131,6 +131,12 @@ function _nonlinear_decay(nm::AbstractMatrix{Float64})
     end
 
     uo = copy(ui)
+    # `_nl_loudness` special-cases `u2_mat[:, 0]` (`= core_loudness[:, 0] * (1 -
+    # B[5])` under a `>= 1e-5` mask) before its main loop; traced and confirmed
+    # dead code -- the loop's own `col == 0` iteration unconditionally
+    # overwrites it via `u2_mat[:, col] = uo_mat[:, col]` before any other use,
+    # so the special init is never observable. Intentionally omitted here;
+    # the plain zero-init below is equivalent.
     u2 = zeros(Float64, nbands, ncols)
 
     @inbounds for col in 1:ncols

@@ -23,6 +23,21 @@ end
 
 # =========================================================================== #
 #  ISO 532-1:2017 Tables (Zwicker:1991 / ISO 532-1:2017 Annex A)
+#
+#  Provenance: these tables (RAP/DLL/LTQ/A0/DDF/DCB/ZUP/RNS/USL) and the
+#  Method 1 pipeline they parameterize (correct_low_frequencies ->
+#  compute_excitation_levels -> compute_core_loudness -> compute_spreading)
+#  trace to Zwicker, E. (1991), "Program for calculating loudness according
+#  to DIN 45631 (ISO 532B)", J. Acoust. Soc. Jpn. (E) 12, 1 -- the original
+#  BASIC listing published alongside ISO 532B/DIN 45631, whose constants and
+#  step structure ISO 532-1:2017 Annex A (the normative "computer program")
+#  carries forward essentially unchanged. This package's implementation was
+#  additionally cross-checked, table-for-table and step-for-step, against
+#  the MoSQITo project's vectorized transcription of the same algorithm
+#  (`_main_loudness.py` / `_calc_slopes.py`, Apache-2.0, see
+#  `src/method2.jl`'s module docstring and `test/fixtures/NOTICE.md` for the
+#  pinned commit) during the time-varying (clause 6) work, which confirmed
+#  table-for-table and formula-for-formula equivalence with the code below.
 # =========================================================================== #
 
 const RAP = Float64[45, 55, 65, 71, 80, 90, 100, 120]

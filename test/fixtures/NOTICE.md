@@ -36,3 +36,18 @@ against the public `loudness_zwtv` API at generation time.
   `.superpowers/sdd/zwtv-pins.md` for the full licensing reasoning. Only
   MoSQITo's *computed results* on that signal are vendored here, the same
   treatment already given to `test_signal_1_nspec.csv` above.
+
+### Kernel-level Annex B conformance (`test_method2_annexb_conformance.jl`)
+
+`test/test_method2_annexb_conformance.jl` + `scripts/dump_annexb_band_levels.py`
+(added Task 3) go one step further than `ZWTV_ANNEXB_DERIVED`: they run this
+package's own kernel on the `band_levels` matrix for the same Annex B.4
+signal, regenerated **locally and transiently** (never committed, never
+vendored as a fixture) from a local MoSQITo checkout via
+`_third_octave_levels` @ `d990c33f94f1` (Apache-2.0), and compare against the
+vendored `ZWTV_ANNEXB_DERIVED` numbers above. The `.wav` itself is still
+never read by, nor shipped with, this repository's committed sources; the
+testset self-skips (`@test_skip`) whenever that local checkout is absent
+(always true in CI), so this repository never distributes the ISO-copyrighted
+recording or any matrix derived from it -- only the ephemeral, per-run
+regeneration used to produce a pass/fail assertion.

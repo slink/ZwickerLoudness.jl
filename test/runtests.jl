@@ -152,3 +152,4 @@ end
 end
 
 include("test_method2_kernel.jl")
+include("test_method2_annexb_conformance.jl")
