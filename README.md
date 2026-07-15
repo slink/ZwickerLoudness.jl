@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/slink/ZwickerLoudness.jl/actions/workflows/CI.yml/badge.svg)](https://github.com/slink/ZwickerLoudness.jl/actions/workflows/CI.yml)
 [![codecov](https://codecov.io/gh/slink/ZwickerLoudness.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/slink/ZwickerLoudness.jl)
+[![DOI](https://zenodo.org/badge/1152458596.svg)](https://zenodo.org/badge/latestdoi/1152458596)
 
 Zwicker loudness calculation per **ISO 532-1:2017**: the clause 5 method for
 stationary sounds, and (since v0.3.0) the clause 6 method for time-varying
