@@ -15,10 +15,9 @@ is ALSO written to argv[2] but with ONLY the final derived numbers (N_t,
 time_axis, N5, N10) -- deliberately excluding band_levels and
 specific_loudness, which (unlike a handful of final loudness numbers)
 retain enough structure to reconstitute the copyrighted recording. See
-.superpowers/sdd/zwtv-pins.md for the licensing reasoning. The .wav
-itself is never read by, nor shipped with, this repository's committed
-sources -- it must be supplied from a local MoSQITo checkout at
-generation time.
+"Licensing posture" in test/fixtures/NOTICE.md for the reasoning. The
+.wav itself is never shipped with this repository -- it must be supplied
+from a local MoSQITo checkout at generation time.
 
 Stage boundary transcribed from loudness_zwtv.py:111-131 (module docstring
 Notes therein cite ISO 532-1:2017 clause 6 "Method for time-varying

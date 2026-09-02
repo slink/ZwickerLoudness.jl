@@ -8,7 +8,7 @@ Annex B time-varying .wav file, via MoSQITo's private `_third_octave_levels`
 @ d990c33f94f1 (Apache-2.0), and writes it as a Julia literal to a file path
 supplied by the caller -- always a path OUTSIDE this repository (under
 `tempname()`), never committed. This mirrors the licensing posture recorded
-in .superpowers/sdd/zwtv-pins.md and test/fixtures/NOTICE.md: the Annex B
+in test/fixtures/NOTICE.md ("Licensing posture"): the Annex B
 .wav itself, and any band-level/specific-loudness matrix derived from it,
 retain enough structure to functionally reconstruct the ISO-copyrighted
 recording, so they are regenerated fresh, locally, on demand, and discarded

@@ -351,7 +351,7 @@ ISO 532-1:2017 Method 1.
 - `field_type::Symbol = :free`: listening condition, either `:free` or `:diffuse`.
 
 # Returns
-A [`ZwickerResult`](@ref) with total loudness in sone, loudness level in phon,
+A `ZwickerResult` with total loudness in sone, loudness level in phon,
 and 240-bin specific loudness `N'(z)` in sone/Bark at 0.1 Bark resolution.
 
 # Throws
