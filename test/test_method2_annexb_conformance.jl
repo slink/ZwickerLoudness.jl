@@ -18,16 +18,18 @@ using ZwickerLoudness
 #  This testset does exactly that: if a local MoSQITo checkout at the pinned
 #  commit (with the Annex B .wav) is present at /tmp/mosqito-pinned, it
 #  shells out to `scripts/dump_annexb_band_levels.py` (via `uv run --with
-#  mosqito`) to regenerate `band_levels` from the .wav into a throwaway file
+#  mosqito==1.2.1`: the PyPI release whose package code is identical to the
+#  pinned commit, so the oracle stays reproducible whatever PyPI publishes
+#  later) to regenerate `band_levels` from the .wav into a throwaway file
 #  (never committed, deleted immediately after use), feeds that matrix
 #  through THIS package's `zwicker_loudness_time_varying`, and compares the
 #  result against the vendored `ZWTV_ANNEXB_DERIVED` numbers.
 #
-#  CI has no access to /tmp/mosqito-pinned (it is a local, gitignored,
-#  throwaway clone -- see zwtv-pins.md §0), so this testset self-skips via
-#  `@test_skip` with an explanatory message whenever that material is
-#  absent, keeping CI green while local development (with the reference
-#  material cloned) gets the full end-to-end gate. This is the deliberate
+#  /tmp/mosqito-pinned is a local, gitignored, throwaway clone (see
+#  zwtv-pins.md §0): CI provisions it (plus uv) on ubuntu/macos in
+#  .github/workflows/CI.yml so the gate runs there; wherever it or uv is
+#  absent (windows-latest, a bare local checkout) this testset self-skips
+#  via `@test_skip` with an explanatory message. This is the deliberate
 #  choice recorded in the Task 3 report over a Pkg.test-internal-only
 #  design: regenerating band_levels via a Python subprocess is exactly what
 #  Task 1's rig already does at fixture-generation time, so reusing that
@@ -45,14 +47,12 @@ const _ANNEXB_DUMP_SCRIPT = joinpath(@__DIR__, "..", "scripts", "dump_annexb_ban
 _annexb_skip_reason() =
     if Sys.which("uv") === nothing
         "Annex B kernel conformance skipped: `uv` not found on PATH (required to run " *
-        "the local MoSQITo reference driver). Install uv to enable this gate locally; " *
-        "CI intentionally lacks it and stays green via this skip."
+        "the local MoSQITo reference driver). Install uv to enable this gate."
     elseif !isfile(_ANNEXB_WAV)
         "Annex B kernel conformance skipped: local MoSQITo reference material not " *
         "found at \"$_ANNEXB_WAV\". Clone MoSQITo @ d990c33f94f1 to " *
         "$_ANNEXB_MOSQITO_CHECKOUT to enable (see .superpowers/sdd/zwtv-pins.md §2 for " *
-        "why the .wav itself is never vendored in this repository). CI intentionally " *
-        "lacks this material and stays green via this skip."
+        "why the .wav itself is never vendored in this repository)."
     else
         nothing
     end
@@ -68,7 +68,7 @@ _annexb_skip_reason() =
 
         tmp_jl = tempname() * ".jl"
         try
-            run(`uv run --with mosqito --with numpy --with matplotlib python $_ANNEXB_DUMP_SCRIPT $_ANNEXB_WAV $tmp_jl`)
+            run(`uv run --with mosqito==1.2.1 --with numpy --with matplotlib python $_ANNEXB_DUMP_SCRIPT $_ANNEXB_WAV $tmp_jl`)
             include(tmp_jl)
             band_levels = ANNEXB_LOCAL_BAND_LEVELS  # 28 x nblocks @ 2000 Hz, regenerated locally
 

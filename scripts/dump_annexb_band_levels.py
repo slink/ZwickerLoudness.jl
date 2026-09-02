@@ -18,7 +18,7 @@ Same load/calibration convention as scripts/crosscheck_zwtv.py's Annex B
 branch (transcribed from MoSQITo's own Annex B validation driver,
 validations/sq_metrics/loudness_zwtv/validation_loudness_zwtv.py:191).
 
-Usage: uv run --with mosqito --with numpy --with matplotlib python \\
+Usage: uv run --with mosqito==1.2.1 --with numpy --with matplotlib python \\
     dump_annexb_band_levels.py <wav_path> <out_jl_path>
 """
 import sys

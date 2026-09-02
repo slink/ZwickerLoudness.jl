@@ -93,8 +93,8 @@ annexb_provenance = "MoSQITo validations/sq_metrics/loudness_zwtv/input/ISO_532-
     "underlying signal is ISO 532-1:2017 Annex B.4 Test signal 6, ISO-copyrighted."
 
 if isfile(annexb_wav)
-    run(`uv run --with mosqito --with numpy --with matplotlib python $(joinpath(@__DIR__, "crosscheck_zwtv.py")) $tmp $out $FULL_DUMP_CASE $annexb_wav $annexb_name $annexb_provenance`)
+    run(`uv run --with mosqito==1.2.1 --with numpy --with matplotlib python $(joinpath(@__DIR__, "crosscheck_zwtv.py")) $tmp $out $FULL_DUMP_CASE $annexb_wav $annexb_name $annexb_provenance`)
 else
     @warn "Annex B wav not found locally at $annexb_wav; skipping Annex B derived-numbers fixture (clone MoSQITo @ d990c33f94f1 to /tmp/mosqito-pinned to include it)."
-    run(`uv run --with mosqito --with numpy --with matplotlib python $(joinpath(@__DIR__, "crosscheck_zwtv.py")) $tmp $out $FULL_DUMP_CASE`)
+    run(`uv run --with mosqito==1.2.1 --with numpy --with matplotlib python $(joinpath(@__DIR__, "crosscheck_zwtv.py")) $tmp $out $FULL_DUMP_CASE`)
 end

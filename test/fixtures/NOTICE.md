@@ -48,6 +48,7 @@ vendored as a fixture) from a local MoSQITo checkout via
 vendored `ZWTV_ANNEXB_DERIVED` numbers above. The `.wav` itself is still
 never read by, nor shipped with, this repository's committed sources; the
 testset self-skips (`@test_skip`) whenever that local checkout is absent
-(always true in CI), so this repository never distributes the ISO-copyrighted
+(CI clones it into the runner's /tmp on ubuntu/macos and skips on windows),
+so this repository never distributes the ISO-copyrighted
 recording or any matrix derived from it -- only the ephemeral, per-run
 regeneration used to produce a pass/fail assertion.
