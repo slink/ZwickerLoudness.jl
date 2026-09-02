@@ -18,7 +18,9 @@ using ZwickerLoudness
 #  This testset does exactly that: if a local MoSQITo checkout at the pinned
 #  commit (with the Annex B .wav) is present at /tmp/mosqito-pinned, it
 #  shells out to `scripts/dump_annexb_band_levels.py` (via `uv run --with
-#  mosqito`) to regenerate `band_levels` from the .wav into a throwaway file
+#  mosqito==1.2.1`: the PyPI release whose package code is identical to the
+#  pinned commit, so the oracle stays reproducible whatever PyPI publishes
+#  later) to regenerate `band_levels` from the .wav into a throwaway file
 #  (never committed, deleted immediately after use), feeds that matrix
 #  through THIS package's `zwicker_loudness_time_varying`, and compares the
 #  result against the vendored `ZWTV_ANNEXB_DERIVED` numbers.
@@ -68,7 +70,7 @@ _annexb_skip_reason() =
 
         tmp_jl = tempname() * ".jl"
         try
-            run(`uv run --with mosqito --with numpy --with matplotlib python $_ANNEXB_DUMP_SCRIPT $_ANNEXB_WAV $tmp_jl`)
+            run(`uv run --with mosqito==1.2.1 --with numpy --with matplotlib python $_ANNEXB_DUMP_SCRIPT $_ANNEXB_WAV $tmp_jl`)
             include(tmp_jl)
             band_levels = ANNEXB_LOCAL_BAND_LEVELS  # 28 x nblocks @ 2000 Hz, regenerated locally
 
