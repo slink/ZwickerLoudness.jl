@@ -3,9 +3,10 @@
 # MoSQITo's loudness_zwtv (via uv, private per-stage functions + the
 # public API for a consistency check), vendors the kernel-level fixtures:
 # per-case (band_levels, N_t, N5/N10) plus full stage intermediates for
-# one case, plus the percentile-definition pin. See
-# .superpowers/sdd/zwtv-pins.md for the verified kernel/front-end
-# boundary and the licensing/clause-label decisions this rig encodes.
+# one case, plus the percentile-definition pin. The kernel/front-end
+# boundary is MoSQITo's private `_third_octave_levels` output (see
+# src/method2.jl's module docstring); the licensing decisions this rig
+# encodes are recorded in test/fixtures/NOTICE.md ("Licensing posture").
 # Requires uv and network on first run.
 # Usage: julia scripts/generate_mosqito_zwtv_crosscheck.jl
 using Statistics: std
@@ -79,8 +80,8 @@ end
 out = joinpath(@__DIR__, "..", "test", "fixtures", "zwtv_kernel_fixtures.jl")
 
 # Optional: one ISO 532-1 Annex B time-varying signal, end-to-end, DERIVED
-# NUMBERS ONLY (see crosscheck_zwtv.py's Annex B block and
-# .superpowers/sdd/zwtv-pins.md for the licensing reasoning). Points at a
+# NUMBERS ONLY (see crosscheck_zwtv.py's Annex B block and "Licensing
+# posture" in test/fixtures/NOTICE.md for the reasoning). Points at a
 # *local* MoSQITo checkout at the pin -- never committed, and the path is
 # only used transiently at generation time. Set to `nothing` to skip.
 annexb_wav = joinpath(

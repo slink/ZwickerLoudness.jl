@@ -32,10 +32,32 @@ against the public `loudness_zwtv` API at generation time.
   (`validations/sq_metrics/loudness_zwtv/input/ISO_532-1/Annex B.4/Test
   signal 6 (tone 250 Hz 30 dB - 80 dB).wav`). The underlying .wav is
   ISO-copyrighted material; MoSQITo's Apache-2.0 grant does not extend to
-  it, so it is never read by or shipped with this repository -- see
-  `.superpowers/sdd/zwtv-pins.md` for the full licensing reasoning. Only
-  MoSQITo's *computed results* on that signal are vendored here, the same
-  treatment already given to `test_signal_1_nspec.csv` above.
+  it, so it is never shipped with this repository (see "Licensing
+  posture" below). Only MoSQITo's *computed results* on that signal are
+  vendored here, the same treatment already given to
+  `test_signal_1_nspec.csv` above.
+
+## Licensing posture for ISO 532-1 Annex B material
+
+The Annex B test signals are ISO-copyrighted. MoSQITo redistributes them
+under its own Apache-2.0 license, but that grant cannot confer rights ISO
+has not granted, so this repository treats the recordings as
+non-redistributable:
+
+- The `.wav` files are never committed. Anything that needs them (the
+  fixture generator's Annex B branch, `test_method2_annexb_conformance.jl`)
+  reads them from a *local* MoSQITo checkout at the pinned commit
+  (`/tmp/mosqito-pinned`, provisioned by CI on ubuntu/macos) and skips
+  visibly when that checkout is absent.
+- Intermediate matrices derived from a recording (`band_levels`,
+  specific loudness `N'(z, t)`) are never committed either: at full
+  resolution they retain enough structure to functionally reconstruct the
+  recording. `scripts/dump_annexb_band_levels.py` writes them only to a
+  `tempname()` path that the calling test discards.
+- Only highly-compressed *results* are vendored: the final loudness curve
+  (coarsened) and the exact N5/N10 percentiles for the time-varying case,
+  and the 240-bin `N'(z)` of a single stationary signal
+  (`test_signal_1_nspec.csv`).
 
 ### Kernel-level Annex B conformance (`test_method2_annexb_conformance.jl`)
 

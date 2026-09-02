@@ -8,8 +8,8 @@
 #  `loudness_zwtv`) and computes time-varying loudness N(t) plus N5/N10
 #  percentiles.
 #
-#  Pipeline, per `.superpowers/sdd/zwtv-pins.md` §1 (verified against
-#  MoSQITo `loudness_zwtv.py:111-136` @ d990c33f94f1):
+#  Pipeline (stage boundaries verified against MoSQITo
+#  `loudness_zwtv.py:111-136` @ d990c33f94f1):
 #    1. Per-block core loudness `nm` (21 x nblocks): REUSES this package's
 #       existing Method 1 stages `compute_excitation_levels` +
 #       `compute_core_loudness` (src/ZwickerLoudness.jl) -- MoSQITo's own
@@ -267,7 +267,7 @@ reference algorithm, not a caller-supplied parameter.
 - `field_type::Symbol = :free`: listening condition, either `:free` or `:diffuse`.
 
 # Returns
-A [`ZwickerTimeVaryingResult`](@ref) with time-varying total loudness `N(t)`
+A `ZwickerTimeVaryingResult` with time-varying total loudness `N(t)`
 in sone (2 ms axis), `N5`/`N10` percentile loudness in sone, time-varying
 240-bin specific loudness `N'(z, t)` in sone/Bark, and the corresponding
 time axis in seconds.

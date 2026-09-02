@@ -8,7 +8,7 @@ using ZwickerLoudness
 #  vendors only MoSQITo's *derived numbers* (coarsened N(t) + exact N5/N10)
 #  for Annex B.4 "Test signal 6" -- deliberately NOT the `band_levels` matrix
 #  that produced them, since that .wav is ISO-copyrighted material MoSQITo
-#  merely redistributes (see .superpowers/sdd/zwtv-pins.md §2 and
+#  merely redistributes (see "Licensing posture" in
 #  test/fixtures/NOTICE.md). So a kernel-level conformance check ("run OUR
 #  kernel on the SAME band levels MoSQITo used, compare against MoSQITo's own
 #  numbers") cannot use a vendored fixture for its input -- it must
@@ -51,8 +51,8 @@ _annexb_skip_reason() =
     elseif !isfile(_ANNEXB_WAV)
         "Annex B kernel conformance skipped: local MoSQITo reference material not " *
         "found at \"$_ANNEXB_WAV\". Clone MoSQITo @ d990c33f94f1 to " *
-        "$_ANNEXB_MOSQITO_CHECKOUT to enable (see .superpowers/sdd/zwtv-pins.md §2 for " *
-        "why the .wav itself is never vendored in this repository)."
+        "$_ANNEXB_MOSQITO_CHECKOUT to enable (see \"Licensing posture\" in " *
+        "test/fixtures/NOTICE.md for why the .wav itself is never vendored)."
     else
         nothing
     end
