@@ -56,6 +56,9 @@ end
 # and temporal weighting stages -- the reason for the full stage dump.
 # "am_tone_1k_10hz_65db": non-constant envelope for temporal-weighting
 # behavior beyond a single transient.
+# "steady_tone_1k_60db_diffuse": the SAME signal as "steady_tone_1k_60db"
+# (identical band_levels -- the front end is field-independent) run with
+# field_type="diffuse", pinning the kernel's diffuse-field branch.
 cases = [
     ("steady_tone_1k_60db", 48000.0, "free",
         tone(48000, 1000.0, 0.10, 60.0)),
@@ -63,6 +66,8 @@ cases = [
         tone_burst(48000, 1000.0, 0.15, 0.03, 0.06, 70.0)),
     ("am_tone_1k_10hz_65db", 48000.0, "free",
         am_tone(48000, 1000.0, 10.0, 0.20, 65.0)),
+    ("steady_tone_1k_60db_diffuse", 48000.0, "diffuse",
+        tone(48000, 1000.0, 0.10, 60.0)),
 ]
 const FULL_DUMP_CASE = "tone_burst_1k_70db_30ms"
 

@@ -200,6 +200,26 @@ end
     # ============================================================ #
     #  Input validation
     # ============================================================ #
+    # ============================================================ #
+    #  Diffuse-field branch: "steady_tone_1k_60db_diffuse" is the SAME
+    #  signal as "steady_tone_1k_60db" (identical band_levels -- the front
+    #  end is field-independent), so the two fixtures differ ONLY in the
+    #  kernel's field_type path, and the end-to-end loop above already
+    #  pinned N(t) for both against MoSQITo.
+    # ============================================================ #
+    @testset "diffuse-field case: same band levels, different N(t)" begin
+        free = only(filter(c -> c.name == "steady_tone_1k_60db", ZWTV_KERNEL_FIXTURE_CASES))
+        diff = only(filter(c -> c.name == "steady_tone_1k_60db_diffuse", ZWTV_KERNEL_FIXTURE_CASES))
+        @test diff.field_type == :diffuse
+        @test diff.band_levels_sha256 == free.band_levels_sha256
+        @test diff.band_levels == free.band_levels
+        @test diff.N5_iso != free.N5_iso
+        r_free = zwicker_loudness_time_varying(free.band_levels; field_type=:free)
+        r_diff = zwicker_loudness_time_varying(free.band_levels; field_type=:diffuse)
+        @test r_free.loudness_over_time != r_diff.loudness_over_time
+        @test isapprox(r_diff.loudness_over_time, diff.N_t; rtol=1e-9, atol=1e-12)
+    end
+
     @testset "invalid field_type throws" begin
         @test_throws ArgumentError zwicker_loudness_time_varying(fill(60.0, 28, 10); field_type=:invalid)
     end

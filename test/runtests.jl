@@ -5,6 +5,12 @@ const SIGNAL_1_SPL = Float64[-60, -60, 78, 79, 89, 72, 80, 89, 75, 87,
                               85, 79, 86, 80, 71, 70, 72, 71, 72, 74,
                               69, 65, 67, 77, 68, 58, 45, 30]
 
+# MoSQITo free/diffuse-field stationary oracle (see test/fixtures/NOTICE.md).
+# Guarded so re-including this file in one session does not redefine a const.
+if !isdefined(Main, :ZWST_FIELD_FIXTURE_CASES)
+    include(joinpath(@__DIR__, "fixtures", "zwst_field_fixtures.jl"))
+end
+
 # Load 240-bin reference N'(z) for Signal 1 (free field) from MoSQITo CSV.
 # See test/fixtures/NOTICE.md for attribution.
 function load_signal_1_nspec_reference()
@@ -100,6 +106,26 @@ end
         r_free = zwicker_loudness(spl; field_type=:free)
         r_diffuse = zwicker_loudness(spl; field_type=:diffuse)
         @test r_free.loudness != r_diffuse.loudness
+    end
+
+    # MoSQITo @ d990c33f94f1 oracle for BOTH field types on synthetic
+    # 28-band inputs (test/fixtures/zwst_field_fixtures.jl). The Signal 1
+    # csv above is free-field only, so without this the diffuse branch of
+    # compute_excitation_levels was pinned only by "differs from free".
+    # Measured agreement at generation: N identical after both sides'
+    # 2-decimal rounding, N'(z) within 7e-15 sone/Bark on every bin.
+    @testset "free/diffuse field vs MoSQITo stationary stages" begin
+        for case in ZWST_FIELD_FIXTURE_CASES, ft in (:free, :diffuse)
+            ref = getfield(case, ft)
+            result = zwicker_loudness(case.spl; field_type=ft)
+            @test isapprox(result.loudness, ref.N; rtol=1e-9, atol=1e-12)
+            @test length(result.specific_loudness) == 240
+            @test maximum(abs.(result.specific_loudness .- ref.N_specific)) < 1e-12
+        end
+        # Diffuse must move the total for every case, not just the flat one.
+        for case in ZWST_FIELD_FIXTURE_CASES
+            @test case.diffuse.N != case.free.N
+        end
     end
 
     @testset "default is free field" begin
