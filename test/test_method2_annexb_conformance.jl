@@ -25,11 +25,11 @@ using ZwickerLoudness
 #  through THIS package's `zwicker_loudness_time_varying`, and compares the
 #  result against the vendored `ZWTV_ANNEXB_DERIVED` numbers.
 #
-#  CI has no access to /tmp/mosqito-pinned (it is a local, gitignored,
-#  throwaway clone -- see zwtv-pins.md §0), so this testset self-skips via
-#  `@test_skip` with an explanatory message whenever that material is
-#  absent, keeping CI green while local development (with the reference
-#  material cloned) gets the full end-to-end gate. This is the deliberate
+#  /tmp/mosqito-pinned is a local, gitignored, throwaway clone (see
+#  zwtv-pins.md §0): CI provisions it (plus uv) on ubuntu/macos in
+#  .github/workflows/CI.yml so the gate runs there; wherever it or uv is
+#  absent (windows-latest, a bare local checkout) this testset self-skips
+#  via `@test_skip` with an explanatory message. This is the deliberate
 #  choice recorded in the Task 3 report over a Pkg.test-internal-only
 #  design: regenerating band_levels via a Python subprocess is exactly what
 #  Task 1's rig already does at fixture-generation time, so reusing that
@@ -47,14 +47,12 @@ const _ANNEXB_DUMP_SCRIPT = joinpath(@__DIR__, "..", "scripts", "dump_annexb_ban
 _annexb_skip_reason() =
     if Sys.which("uv") === nothing
         "Annex B kernel conformance skipped: `uv` not found on PATH (required to run " *
-        "the local MoSQITo reference driver). Install uv to enable this gate locally; " *
-        "CI intentionally lacks it and stays green via this skip."
+        "the local MoSQITo reference driver). Install uv to enable this gate."
     elseif !isfile(_ANNEXB_WAV)
         "Annex B kernel conformance skipped: local MoSQITo reference material not " *
         "found at \"$_ANNEXB_WAV\". Clone MoSQITo @ d990c33f94f1 to " *
         "$_ANNEXB_MOSQITO_CHECKOUT to enable (see .superpowers/sdd/zwtv-pins.md §2 for " *
-        "why the .wav itself is never vendored in this repository). CI intentionally " *
-        "lacks this material and stays green via this skip."
+        "why the .wav itself is never vendored in this repository)."
     else
         nothing
     end
