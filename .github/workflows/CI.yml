@@ -34,7 +34,7 @@ jobs:
         run: |
           git clone https://github.com/Eomys/MoSQITo /tmp/mosqito-pinned
           git -C /tmp/mosqito-pinned checkout d990c33f94f1b2050b2d811dea492219ebe97b30
-      - uses: astral-sh/setup-uv@v8.3.2
+      - uses: astral-sh/setup-uv@v10.0.1
         if: matrix.os != 'windows-latest'
       - uses: julia-actions/julia-runtest@v1
       - uses: julia-actions/julia-processcoverage@v1
